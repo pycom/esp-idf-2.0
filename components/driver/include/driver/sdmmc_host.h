@@ -44,6 +44,18 @@ extern "C" {
     .deinit = &sdmmc_host_deinit, \
 }
 
+#define SDMMC_HOST_1_BIT_DEFAULT() {\
+    .flags = SDMMC_HOST_FLAG_1BIT, \
+    .slot = SDMMC_HOST_SLOT_1, \
+    .max_freq_khz = SDMMC_FREQ_DEFAULT, \
+    .io_voltage = 3.3f, \
+    .init = &sdmmc_host_init, \
+    .set_bus_width = &sdmmc_host_set_bus_width, \
+    .set_card_clk = &sdmmc_host_set_card_clk, \
+    .do_transaction = &sdmmc_host_do_transaction, \
+    .deinit = &sdmmc_host_deinit, \
+}
+
 /**
  * Extra configuration for SDMMC peripheral slot
  */

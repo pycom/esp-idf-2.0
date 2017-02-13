@@ -392,6 +392,14 @@ void app_main()
 {
     esp_err_t ret;
 
+    gpio_config_t gpioconf = {.pin_bit_mask = 1ull << 16,
+                              .mode = GPIO_MODE_OUTPUT,
+                              .pull_up_en = GPIO_PULLUP_DISABLE,
+                              .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                              .intr_type = GPIO_INTR_DISABLE};
+    gpio_config(&gpioconf);
+    GPIO_REG_WRITE(GPIO_OUT_W1TC_REG, 1 << 16);
+
     esp_bt_controller_init();
 
     ret = esp_bluedroid_init();

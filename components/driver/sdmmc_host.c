@@ -305,15 +305,12 @@ esp_err_t sdmmc_host_init_slot(int slot, const sdmmc_slot_config_t* slot_config)
     configure_pin(pslot->clk);
     configure_pin(pslot->cmd);
     configure_pin(pslot->d0);
-    configure_pin(pslot->d1);
-    configure_pin(pslot->d2);
-    configure_pin(pslot->d3);
-    if (pslot->width == 8) {
-        configure_pin(pslot->d4);
-        configure_pin(pslot->d5);
-        configure_pin(pslot->d6);
-        configure_pin(pslot->d7);
-    }
+
+    // Enable the internal pull-ups
+    gpio_set_pull_mode(2, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(15, GPIO_PULLUP_ONLY);
+
     if (gpio_cd != -1) {
         gpio_set_direction(gpio_cd, GPIO_MODE_INPUT);
         gpio_matrix_in(gpio_cd, pslot->card_detect, 0);
@@ -443,7 +440,7 @@ void sdmmc_host_dma_resume()
  * full and some card detect events may be dropped. We ignore this problem for now, since
  * the there are no other interesting events which can get lost due to this.
  */
-static void sdmmc_isr(void* arg) {
+static IRAM_ATTR void sdmmc_isr(void* arg) {
     QueueHandle_t queue = (QueueHandle_t) arg;
     sdmmc_event_t event;
     uint32_t pending = SDMMC.mintsts.val;
@@ -460,4 +457,3 @@ static void sdmmc_isr(void* arg) {
         portYIELD_FROM_ISR();
     }
 }
-
