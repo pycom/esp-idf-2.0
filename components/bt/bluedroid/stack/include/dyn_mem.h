@@ -27,16 +27,15 @@
 #endif
 
 #ifndef BTM_DYNAMIC_MEMORY
-#define BTM_DYNAMIC_MEMORY  FALSE
+#define BTM_DYNAMIC_MEMORY  TRUE
 #endif
 
 #ifndef SDP_DYNAMIC_MEMORY
-//#define SDP_DYNAMIC_MEMORY  FALSE
 #define SDP_DYNAMIC_MEMORY  TRUE
 #endif
 
 #ifndef L2C_DYNAMIC_MEMORY
-#define L2C_DYNAMIC_MEMORY  FALSE
+#define L2C_DYNAMIC_MEMORY  TRUE
 #endif
 
 #ifndef RFC_DYNAMIC_MEMORY
@@ -64,7 +63,7 @@
 #endif
 
 #ifndef GATT_DYNAMIC_MEMORY
-#define GATT_DYNAMIC_MEMORY  FALSE
+#define GATT_DYNAMIC_MEMORY TRUE
 #endif
 
 #ifndef SMP_DYNAMIC_MEMORY
@@ -148,7 +147,11 @@
 **  The default for each component is to use static memory allocations.
 */
 #ifndef BTA_DYNAMIC_MEMORY
-#define BTA_DYNAMIC_MEMORY FALSE
+#define BTA_DYNAMIC_MEMORY TRUE
+#endif
+
+#ifndef GAP_DYNAMIC_MEMORY
+#define GAP_DYNAMIC_MEMORY TRUE
 #endif
 
 #endif  /* #ifdef DYN_MEM_H */

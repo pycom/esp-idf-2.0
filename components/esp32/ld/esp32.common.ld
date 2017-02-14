@@ -83,9 +83,18 @@ SECTIONS
     *libesp32.a:core_dump.o(.literal .text .literal.* .text.*)
     *libphy.a:(.literal .text .literal.* .text.*)
     *librtc.a:(.literal .text .literal.* .text.*)
-    *libpp.a:(.literal .text .literal.* .text.*)
     *libhal.a:(.literal .text .literal.* .text.*)
     *libcoexist.a:(.literal .text .literal.* .text.*)
+    /* libpp */
+    *libpp.a:esf_buf.o(.literal .text .literal.* .text.*)
+    *libpp.a:if_hwctrl.o(.literal .text .literal.* .text.*)
+    *libpp.a:lmac.o(.literal .text .literal.* .text.*)
+    *libpp.a:pm.o(.literal .text .literal.* .text.*)
+    *libpp.a:pm_for_bcn_only_mode.o(.literal .text .literal.* .text.*)
+    *libpp.a:pp.o(.literal .text .literal.* .text.*)
+    *libpp.a:rate_control.o(.literal .text .literal.* .text.*)
+    *libpp.a:trc.o(.literal .text .literal.* .text.*)
+    *libpp.a:wdev.o(.literal .text .literal.* .text.*)
     _iram_text_end = ABSOLUTE(.);
   } > iram0_0_seg
 

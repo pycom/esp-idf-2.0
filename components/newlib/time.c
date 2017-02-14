@@ -33,6 +33,9 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
+#include <stdio.h>
+#define dbg(arg0, args...) printf("%s,%s-%d: "arg0"\n", __FILE__, __func__, __LINE__, ##args)
+
 #if defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC ) || defined( CONFIG_ESP32_TIME_SYSCALL_USE_RTC_FRC1 )
 #define WITH_RTC 1
 #endif
@@ -69,29 +72,55 @@ static _lock_t s_boot_time_lock;
 #endif
 
 #ifdef WITH_FRC1
-#define FRC1_PRESCALER 16
-#define FRC1_PRESCALER_CTL 2
+#define FRC1_PRESCALER (16)
+#define FRC1_PRESCALER_CTL (2)
 #define FRC1_TICK_FREQ (APB_CLK_FREQ / FRC1_PRESCALER)
+#define FRC1_RELOAD_VALUE (FRC_TIMER_LOAD_VALUE(0))
 #define FRC1_TICKS_PER_US (FRC1_TICK_FREQ / 1000000)
-#define FRC1_ISR_PERIOD_US (FRC_TIMER_LOAD_VALUE(0) / FRC1_TICKS_PER_US)
+#define FRC1_ISR_PERIOD_US (FRC1_RELOAD_VALUE / FRC1_TICKS_PER_US)
+
+#define FRC1_ISR_ROUND_TICS (FRC1_ISR_PERIOD_US * FRC1_TICKS_PER_US)
+
+// the counter is 23 bits, but we wan't to have some room to calibrate
+#define FRC1_TICKS_SCALE_POWER (30 - 23)
+
+#define FRC1_ISR_ROUND_TICS_SCALED (FRC1_ISR_ROUND_TICS << FRC1_TICKS_SCALE_POWER)
+#define FRC1_BRES_COUNTS_PER_ISR (FRC1_RELOAD_VALUE << FRC1_TICKS_SCALE_POWER)
+
 // Counter frequency will be APB_CLK_FREQ / 16 = 5 MHz
 // 1 tick = 0.2 us
 // Timer has 23 bit counter, so interrupt will fire each 1677721.6 microseconds.
 // This is not a whole number, so timer will drift by 0.3 ppm due to rounding error.
 
 static volatile uint64_t s_microseconds = 0;
+static uint32_t bres_round_ticks_per_interrupt;
 
 static void IRAM_ATTR frc_timer_isr()
 {
-    // Write to FRC_TIMER_INT_REG may not take effect in some cases (root cause TBD)
-    // This extra write works around this issue.
-    // FRC_TIMER_LOAD_REG(0) is used here, but any other DPORT register address can also be used.
-    WRITE_PERI_REG(FRC_TIMER_LOAD_REG(0), FRC_TIMER_LOAD_VALUE(0));
-    WRITE_PERI_REG(FRC_TIMER_INT_REG(0), FRC_TIMER_INT_CLR);
-    s_microseconds += FRC1_ISR_PERIOD_US;
+    // we don't like drift introduced by rounding,
+    // read http://www.romanblack.com/one_sec.htm to get more info about this
+    // in case it goes down:
+    //      http://web.archive.org/web/20161228183850/http://www.romanblack.com/one_sec.htm
+    // this way user calibration can also be implemented
+
+    static uint32_t bres; // bresenham counter
+    WRITE_PERI_REG(FRC_TIMER_INT_REG(0), FRC_TIMER_INT_CLR); // clear the interrupt
+    bres += FRC1_BRES_COUNTS_PER_ISR;
+    while (bres >= bres_round_ticks_per_interrupt) {
+        bres -= bres_round_ticks_per_interrupt;
+        s_microseconds += FRC1_ISR_PERIOD_US;
+    }
 }
 
 #endif // WITH_FRC1
+
+void rtc_calibrate_timer(int32_t adjust_value) {
+    bres_round_ticks_per_interrupt = FRC1_ISR_ROUND_TICS_SCALED + adjust_value;
+}
+
+int32_t rtc_get_timer_calibration(void) {
+    return bres_round_ticks_per_interrupt - FRC1_ISR_ROUND_TICS_SCALED;
+}
 
 #if defined(WITH_RTC) || defined(WITH_FRC1)
 static void set_boot_time(uint64_t time_us)
@@ -126,6 +155,7 @@ void esp_setup_time_syscalls()
 #if defined( WITH_RTC )
     // initialize time from RTC clock
     s_microseconds = get_rtc_time_us();
+    rtc_calibrate_timer(0);
 #endif //WITH_RTC
 
     // set up timer
@@ -134,7 +164,7 @@ void esp_setup_time_syscalls()
             (FRC1_PRESCALER_CTL << FRC_TIMER_PRESCALER_S) | \
             FRC_TIMER_EDGE_INT);
 
-    WRITE_PERI_REG(FRC_TIMER_LOAD_REG(0), FRC_TIMER_LOAD_VALUE(0));
+    WRITE_PERI_REG(FRC_TIMER_LOAD_REG(0), FRC1_RELOAD_VALUE);
     SET_PERI_REG_MASK(FRC_TIMER_CTRL_REG(0),
             FRC_TIMER_ENABLE | \
             FRC_TIMER_INT_ENABLE);
@@ -155,7 +185,7 @@ clock_t IRAM_ATTR _times_r(struct _reent *r, struct tms *ptms)
 }
 
 #if defined( WITH_FRC1 ) || defined( WITH_RTC )
-static uint64_t get_time_since_boot()
+uint64_t get_time_since_boot()
 {
     uint64_t microseconds = 0;
 #ifdef WITH_FRC1
@@ -168,7 +198,7 @@ static uint64_t get_time_since_boot()
         // microseconds value is ambiguous, get a new one
         microseconds = s_microseconds;
     }
-    microseconds += (FRC_TIMER_LOAD_VALUE(0) - timer_ticks_after) / FRC1_TICKS_PER_US;
+    microseconds += (FRC1_RELOAD_VALUE - timer_ticks_after) / FRC1_TICKS_PER_US;
 #elif defined(WITH_RTC)
     microseconds = get_rtc_time_us();
 #endif
